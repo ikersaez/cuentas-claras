@@ -1,0 +1,41 @@
+# 🟡 Cuentas Claras — Guía de publicación
+
+## Paso 1 — Crear cuenta en GitHub (gratis)
+1. Entrá a **github.com**
+2. Hacé clic en "Sign up"
+3. Completá con tu mail y contraseña
+4. Verificá tu mail
+
+## Paso 2 — Subir el proyecto a GitHub
+1. Una vez en GitHub, hacé clic en el botón verde **"New"**
+2. Nombre del repositorio: `cuentas-claras`
+3. Dejalo en **Público**
+4. Hacé clic en **"Create repository"**
+5. En la página que aparece, hacé clic en **"uploading an existing file"**
+6. Arrastrá TODOS los archivos de esta carpeta
+7. Hacé clic en **"Commit changes"**
+
+## Paso 3 — Publicar en Vercel (gratis)
+1. Entrá a **vercel.com**
+2. Hacé clic en **"Sign up"** → elegí **"Continue with GitHub"**
+3. Autorizá Vercel
+4. Hacé clic en **"Add New Project"**
+5. Buscá `cuentas-claras` y hacé clic en **"Import"**
+6. Dejá todo como está y hacé clic en **"Deploy"**
+7. ¡En 2 minutos te da un link tipo `cuentas-claras.vercel.app`!
+
+## Paso 4 — Instalarla en tu celular
+### Android:
+1. Abrí el link en **Chrome**
+2. Tocá los 3 puntitos (menú)
+3. Tocá **"Agregar a pantalla de inicio"**
+4. ¡Listo! Aparece como app
+
+### iPhone:
+1. Abrí el link en **Safari**
+2. Tocá el botón de compartir (cuadrado con flecha)
+3. Tocá **"Agregar a pantalla de inicio"**
+4. ¡Listo!
+
+---
+💛 Tu app Cuentas Claras está lista para usar
