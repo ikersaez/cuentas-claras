@@ -1,0 +1,486 @@
+import { useState, useEffect, useRef } from "react";
+
+const C = {
+  bg: "#F7F6F2",
+  dark: "#1A1A2E",
+  green: "#2ECC71",
+  red: "#E74C3C",
+  gold: "#F4A261",
+  muted: "#9A9A9A",
+  border: "#EBEBEB",
+};
+
+const STORAGE_KEY = "cuentas_claras_v1";
+const defaultData = {
+  balance: 75301,
+  income: 150000,
+  expenses: 75699,
+  transactions: [
+    { id: 1, name: "Supermercado", amount: -4200, cat: "food", date: "Hoy" },
+    { id: 2, name: "Sueldo", amount: 150000, cat: "income", date: "Ayer" },
+    { id: 3, name: "Nafta", amount: -8500, cat: "car", date: "Lun" },
+    { id: 4, name: "Netflix", amount: -2999, cat: "leisure", date: "Lun" },
+    { id: 5, name: "Alquiler", amount: -60000, cat: "home", date: "01 Mar" },
+  ],
+  savings: [
+    { id: 1, name: "Vacaciones", current: 45000, goal: 120000, color: "#3498DB" },
+    { id: 2, name: "Celular nuevo", current: 28000, goal: 80000, color: "#F4A261" },
+    { id: 3, name: "Fondo emergencia", current: 95000, goal: 100000, color: "#2ECC71" },
+  ],
+  alerts: [
+    { id: 1, title: "Pago de alquiler", desc: "Recordatorio mensual", day: "1", active: true, color: "#E74C3C" },
+    { id: 2, title: "Tarjeta de crédito", desc: "Vencimiento cuota", day: "15", active: true, color: "#F4A261" },
+    { id: 3, title: "Revisión de gastos", desc: "Balance semanal", day: "Viernes", active: false, color: "#3498DB" },
+  ],
+  aiMessages: [
+    { role: "ai", text: "¡Hola! Soy tu asistente de Cuentas Claras 👋 Puedo registrar gastos, actualizar ahorros y crear alertas. ¿En qué te ayudo?" }
+  ],
+};
+
+function loadData() {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? { ...defaultData, ...JSON.parse(r) } : defaultData; }
+  catch { return defaultData; }
+}
+function saveData(d) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {} }
+
+// ── Logo Component ──────────────────────────────────────────────
+function Logo({ size = "md", dark = true }) {
+  const sizes = { sm: { box: 32, font: 14, name: 13, sub: 9 }, md: { box: 44, font: 20, name: 16, sub: 10 }, lg: { box: 56, font: 26, name: 20, sub: 11 } };
+  const s = sizes[size];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ background: dark ? C.gold : C.dark, borderRadius: s.box * 0.23, width: s.box, height: s.box, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <span style={{ fontSize: s.font, fontWeight: 900, color: dark ? C.dark : C.gold, lineHeight: 1, letterSpacing: -1 }}>CC</span>
+      </div>
+      <div>
+        <div style={{ color: dark ? "white" : C.dark, fontSize: s.name, fontWeight: 800, letterSpacing: -0.5, lineHeight: 1 }}>Cuentas Claras</div>
+        <div style={{ color: dark ? "rgba(255,255,255,0.35)" : C.muted, fontSize: s.sub, letterSpacing: 1.5, marginTop: 3 }}>FINANZAS PERSONALES</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Icons ───────────────────────────────────────────────────────
+const Icon = ({ name, size = 20, color = C.dark }) => {
+  const icons = {
+    home: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    chart: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+    piggy: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 9c0-3.31-3.13-6-7-6S5 5.69 5 9c0 .34.03.67.08 1H4a2 2 0 00-2 2v2a2 2 0 002 2h1.08A7.003 7.003 0 0012 20a7.003 7.003 0 006.92-4H20a2 2 0 002-2v-2a2 2 0 00-2-2h-1.08c.05-.33.08-.66.08-1z"/></svg>,
+    bell: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+    sparkle: <svg width={size} height={size} viewBox="0 0 24 24" fill={color}><path d="M12 0l2.4 9.6L24 12l-9.6 2.4L12 24l-2.4-9.6L0 12l9.6-2.4z"/></svg>,
+    plus: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    send: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+    close: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    trash: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
+    check: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+    arrow: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+    food: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>,
+    car: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+    wallet: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/><path d="M2 10h20"/></svg>,
+    tag: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  };
+  return icons[name] || null;
+};
+
+const catColors = { food: "#F4A261", income: "#2ECC71", car: "#3498DB", leisure: "#9B59B6", home: "#E74C3C", other: "#95A5A6" };
+const catIcons =  { food: "food", income: "wallet", car: "car", leisure: "tag", home: "home", other: "wallet" };
+const catLabels = { food: "Comida", income: "Ingreso", car: "Transporte", leisure: "Ocio", home: "Hogar", other: "Otro" };
+
+const tabs = ["home", "chart", "sparkle", "bell", "piggy"];
+const tabLabels = { home: "Inicio", chart: "Gastos", sparkle: "IA", bell: "Alertas", piggy: "Ahorros" };
+
+function fmt(n) { return (n < 0 ? "-" : "+") + "$" + Math.abs(n).toLocaleString("es-AR"); }
+function fmtAbs(n) { return "$" + Math.abs(n).toLocaleString("es-AR"); }
+function todayStr() { return new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short" }); }
+
+const aiSuggestions = ["Gasté $1500 en café", "¿Cuánto gasté este mes?", "¿Cómo van mis ahorros?", "Agregué $5000 a vacaciones"];
+
+export default function CuentasClaras() {
+  const [data, setData] = useState(loadData);
+  const [activeTab, setActiveTab] = useState("home");
+  const [aiInput, setAiInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [showAddTx, setShowAddTx] = useState(false);
+  const [showAddAlert, setShowAddAlert] = useState(false);
+  const [txType, setTxType] = useState("gasto"); // "gasto" | "ingreso"
+  const [newTx, setNewTx] = useState({ name: "", amount: "", cat: "food" });
+  const [newAlert, setNewAlert] = useState({ title: "", desc: "", day: "" });
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => { saveData(data); }, [data]);
+  useEffect(() => { if (activeTab === "sparkle") messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [data.aiMessages, activeTab]);
+
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 2800); }
+
+  function addTransaction() {
+    if (!newTx.name.trim() || !newTx.amount) return;
+    const amount = txType === "gasto" ? -Math.abs(parseFloat(newTx.amount)) : Math.abs(parseFloat(newTx.amount));
+    const cat = txType === "ingreso" ? "income" : newTx.cat;
+    const tx = { id: Date.now(), name: newTx.name, amount, cat, date: todayStr() };
+    setData(d => ({
+      ...d,
+      transactions: [tx, ...d.transactions],
+      balance: d.balance + amount,
+      expenses: amount < 0 ? d.expenses + Math.abs(amount) : d.expenses,
+      income: amount > 0 ? d.income + amount : d.income,
+    }));
+    setNewTx({ name: "", amount: "", cat: "food" });
+    setShowAddTx(false);
+    showToast(amount < 0 ? `💸 Gasto registrado: ${fmtAbs(amount)}` : `💰 Ingreso registrado: ${fmtAbs(amount)}`);
+  }
+
+  function applyAction(action) {
+    if (action.action === "add_transaction") {
+      const tx = { id: Date.now(), name: action.name, amount: action.amount, cat: action.cat || "other", date: todayStr() };
+      setData(d => ({ ...d, transactions: [tx, ...d.transactions], balance: d.balance + action.amount, expenses: action.amount < 0 ? d.expenses + Math.abs(action.amount) : d.expenses, income: action.amount > 0 ? d.income + action.amount : d.income }));
+      showToast(action.amount < 0 ? `💸 Gasto registrado: ${fmtAbs(action.amount)}` : `💰 Ingreso registrado: ${fmtAbs(action.amount)}`);
+    }
+    if (action.action === "add_saving") {
+      setData(d => ({ ...d, savings: d.savings.map(s => s.id === action.id ? { ...s, current: s.current + action.amount } : s) }));
+      showToast(`🎯 Ahorro actualizado: +${fmtAbs(action.amount)}`);
+    }
+    if (action.action === "add_alert") {
+      setData(d => ({ ...d, alerts: [...d.alerts, { id: Date.now(), title: action.title, desc: action.desc || "", day: action.day || "—", active: true, color: "#3498DB" }] }));
+      showToast("🔔 Alerta creada");
+    }
+  }
+
+  async function sendMessage(text) {
+    const userMsg = text || aiInput;
+    if (!userMsg.trim()) return;
+    setAiInput("");
+    const newMsgs = [...data.aiMessages, { role: "user", text: userMsg }];
+    setData(d => ({ ...d, aiMessages: newMsgs }));
+    setLoading(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: `Sos el asistente de Cuentas Claras, una app de finanzas personal argentina. Hablás en español rioplatense, sos conciso (máx 3 oraciones) y usás emojis ocasionales.
+DATOS: Balance $${data.balance.toLocaleString("es-AR")} | Gastos $${data.expenses.toLocaleString("es-AR")} | Ingresos $${data.income.toLocaleString("es-AR")}
+Ahorros: ${JSON.stringify(data.savings)} | Alertas activas: ${data.alerts.filter(a=>a.active).length}
+ACCIONES (incluí JSON al final si hay acción concreta):
+{"action":"add_transaction","name":"nombre","amount":-1234,"cat":"food|car|leisure|home|income|other"}
+{"action":"add_saving","id":1,"amount":5000}
+{"action":"add_alert","title":"titulo","desc":"desc","day":"día"}`,
+          messages: newMsgs.map(m => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text }))
+        })
+      });
+      const json = await res.json();
+      const fullText = json.content?.map(b => b.text || "").join("") || "No pude procesar eso.";
+      const jsonMatch = fullText.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
+      const displayText = fullText.replace(/\{[\s\S]*?"action"[\s\S]*?\}/, "").trim();
+      if (jsonMatch) { try { applyAction(JSON.parse(jsonMatch[0])); } catch {} }
+      setData(d => ({ ...d, aiMessages: [...d.aiMessages, { role: "ai", text: displayText }] }));
+    } catch {
+      setData(d => ({ ...d, aiMessages: [...d.aiMessages, { role: "ai", text: "Error de conexión. Intentá de nuevo." }] }));
+    }
+    setLoading(false);
+  }
+
+  const catBars = [
+    { name: "Comida", pct: 35, color: "#F4A261" },
+    { name: "Transporte", pct: 22, color: "#3498DB" },
+    { name: "Hogar", pct: 28, color: "#E74C3C" },
+    { name: "Ocio", pct: 15, color: "#9B59B6" },
+  ];
+
+  return (
+    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", background: C.bg, minHeight: "100vh", maxWidth: 390, margin: "0 auto", display: "flex", flexDirection: "column", position: "relative" }}>
+
+      {/* Status bar */}
+      <div style={{ background: C.dark, padding: "10px 20px 6px", display: "flex", justifyContent: "space-between" }}>
+        <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>9:41</span>
+        <span style={{ color: "white", fontSize: 11 }}>●●●</span>
+      </div>
+
+      {/* Toast */}
+      {toast && <div style={{ position: "fixed", top: 60, left: "50%", transform: "translateX(-50%)", background: C.dark, color: "white", borderRadius: 24, padding: "10px 20px", fontSize: 13, fontWeight: 600, zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,0.2)", whiteSpace: "nowrap", animation: "fadeIn .3s ease" }}>{toast}</div>}
+
+      {/* ── Add Transaction Modal ── */}
+      {showAddTx && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 900, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ background: "white", borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 390 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.dark }}>Nuevo movimiento</div>
+              <div onClick={() => setShowAddTx(false)} style={{ cursor: "pointer", padding: 4 }}><Icon name="close" size={20} color={C.muted} /></div>
+            </div>
+
+            {/* Tipo toggle */}
+            <div style={{ display: "flex", background: C.bg, borderRadius: 14, padding: 4, marginBottom: 20 }}>
+              {["gasto", "ingreso"].map(t => (
+                <div key={t} onClick={() => setTxType(t)} style={{ flex: 1, textAlign: "center", padding: "10px", borderRadius: 10, background: txType === t ? C.dark : "transparent", color: txType === t ? "white" : C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .2s", textTransform: "capitalize" }}>
+                  {t === "gasto" ? "💸 Gasto" : "💰 Ingreso"}
+                </div>
+              ))}
+            </div>
+
+            <input value={newTx.name} onChange={e => setNewTx(n => ({ ...n, name: e.target.value }))} placeholder="Descripción (ej: Supermercado)" style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "13px 16px", fontSize: 15, marginBottom: 12, outline: "none", boxSizing: "border-box", color: C.dark }} />
+            <input value={newTx.amount} onChange={e => setNewTx(n => ({ ...n, amount: e.target.value }))} placeholder="Monto en $" type="number" style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "13px 16px", fontSize: 15, marginBottom: 12, outline: "none", boxSizing: "border-box", color: C.dark }} />
+
+            {txType === "gasto" && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                {Object.entries(catLabels).filter(([k]) => k !== "income").map(([k, v]) => (
+                  <div key={k} onClick={() => setNewTx(n => ({ ...n, cat: k }))} style={{ padding: "7px 14px", borderRadius: 20, background: newTx.cat === k ? C.dark : C.bg, color: newTx.cat === k ? "white" : C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${newTx.cat === k ? C.dark : C.border}` }}>
+                    {v}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={addTransaction} style={{ width: "100%", background: txType === "gasto" ? C.dark : C.green, border: "none", borderRadius: 16, padding: "15px", fontSize: 15, fontWeight: 700, color: "white", cursor: "pointer" }}>
+              {txType === "gasto" ? "Registrar gasto" : "Registrar ingreso"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 80 }}>
+
+        {/* ── HOME ── */}
+        {activeTab === "home" && (
+          <div>
+            <div style={{ background: C.dark, padding: "24px 24px 36px", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.03)" }}/>
+              <Logo size="md" dark={true} />
+              <div style={{ marginTop: 28, marginBottom: 6, color: "rgba(255,255,255,0.5)", fontSize: 12, letterSpacing: 0.5 }}>Balance disponible</div>
+              <div style={{ color: "white", fontSize: 40, fontWeight: 800, letterSpacing: -2, marginBottom: 24 }}>${data.balance.toLocaleString("es-AR")}</div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: 14, padding: "12px 14px" }}>
+                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, letterSpacing: 1, marginBottom: 5 }}>INGRESOS</div>
+                  <div style={{ color: C.green, fontSize: 17, fontWeight: 700 }}>${data.income.toLocaleString("es-AR")}</div>
+                </div>
+                <div style={{ flex: 1, background: "rgba(255,255,255,0.07)", borderRadius: 14, padding: "12px 14px" }}>
+                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, letterSpacing: 1, marginBottom: 5 }}>GASTOS</div>
+                  <div style={{ color: C.red, fontSize: 17, fontWeight: 700 }}>${data.expenses.toLocaleString("es-AR")}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI banner */}
+            <div style={{ padding: "16px 20px 0" }}>
+              <div onClick={() => setActiveTab("sparkle")} style={{ background: "linear-gradient(135deg,#1A1A2E,#2d3a8c)", borderRadius: 16, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+                <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: 8 }}>
+                  <Icon name="sparkle" size={16} color={C.gold} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "white", fontSize: 13, fontWeight: 600 }}>Asistente IA activo</div>
+                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Registrá gastos con lenguaje natural</div>
+                </div>
+                <Icon name="arrow" size={16} color="rgba(255,255,255,0.3)" />
+              </div>
+            </div>
+
+            {/* Transactions */}
+            <div style={{ padding: "20px 20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.dark }}>Últimos movimientos</div>
+                <div onClick={() => setShowAddTx(true)} style={{ display: "flex", alignItems: "center", gap: 4, background: C.dark, borderRadius: 20, padding: "6px 14px", cursor: "pointer" }}>
+                  <Icon name="plus" size={12} color="white" />
+                  <span style={{ fontSize: 12, color: "white", fontWeight: 600 }}>Agregar</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {data.transactions.slice(0, 7).map(e => (
+                  <div key={e.id} style={{ background: "white", borderRadius: 14, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 12, background: (catColors[e.cat] || "#aaa") + "18", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon name={catIcons[e.cat] || "wallet"} size={18} color={catColors[e.cat] || "#aaa"} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: C.dark }}>{e.name}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{e.date}</div>
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: e.amount > 0 ? C.green : C.dark }}>{fmt(e.amount)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── GASTOS ── */}
+        {activeTab === "chart" && (
+          <div style={{ padding: "24px 20px" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 4 }}>Análisis</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Marzo 2025</div>
+            <div style={{ background: "white", borderRadius: 20, padding: 20, marginBottom: 14, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+              <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1, marginBottom: 18 }}>GASTOS POR CATEGORÍA</div>
+              {catBars.map(b => (
+                <div key={b.name} style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{b.name}</span>
+                    <span style={{ fontSize: 13, color: C.muted }}>{b.pct}%</span>
+                  </div>
+                  <div style={{ height: 7, background: "#F0F0F0", borderRadius: 99 }}>
+                    <div style={{ height: "100%", width: `${b.pct}%`, background: b.color, borderRadius: 99 }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: "white", borderRadius: 20, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+              <div style={{ fontSize: 12, color: C.muted, letterSpacing: 1, marginBottom: 18 }}>ÚLTIMOS 4 MESES</div>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", height: 100 }}>
+                {[{m:"Dic",v:62,c:"#E8E8E8"},{m:"Ene",v:80,c:"#E8E8E8"},{m:"Feb",v:55,c:"#E8E8E8"},{m:"Mar",v:75,c:C.dark}].map(b => (
+                  <div key={b.m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: "100%", height: b.v, background: b.c, borderRadius: "8px 8px 4px 4px" }}/>
+                    <div style={{ fontSize: 11, color: C.muted }}>{b.m}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── IA ── */}
+        {activeTab === "sparkle" && (
+          <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
+            <div style={{ background: C.dark, padding: "20px 20px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 12, padding: 10 }}>
+                <Icon name="sparkle" size={18} color={C.gold} />
+              </div>
+              <div>
+                <div style={{ color: "white", fontSize: 15, fontWeight: 700 }}>Asistente IA</div>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Cuentas Claras · datos guardados ✓</div>
+              </div>
+            </div>
+
+            <div style={{ padding: "12px 16px 0", display: "flex", gap: 8, overflowX: "auto" }}>
+              {aiSuggestions.map((s, i) => (
+                <div key={i} onClick={() => sendMessage(s)} style={{ background: "white", border: `1px solid ${C.border}`, borderRadius: 20, padding: "7px 14px", fontSize: 12, color: C.dark, whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}>{s}</div>
+              ))}
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
+              {data.aiMessages.map((m, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
+                  <div style={{ maxWidth: "78%", background: m.role === "user" ? C.dark : "white", color: m.role === "user" ? "white" : C.dark, borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "12px 16px", fontSize: 14, lineHeight: 1.5, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div style={{ display: "flex", gap: 5, padding: "8px 4px" }}>
+                  {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: C.muted, animation: `bounce 1s ease ${i*.2}s infinite` }}/>)}
+                </div>
+              )}
+              <div ref={messagesEndRef}/>
+            </div>
+
+            <div style={{ padding: "12px 16px 16px", background: C.bg, display: "flex", gap: 10 }}>
+              <input value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} placeholder="Escribí tu consulta o gasto..." style={{ flex: 1, background: "white", border: `1.5px solid ${C.border}`, borderRadius: 24, padding: "12px 18px", fontSize: 14, color: C.dark, outline: "none" }}/>
+              <button onClick={() => sendMessage()} style={{ width: 46, height: 46, borderRadius: "50%", background: C.dark, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icon name="send" size={17} color="white" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── ALERTAS ── */}
+        {activeTab === "bell" && (
+          <div style={{ padding: "24px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 4 }}>Alertas</div>
+                <div style={{ fontSize: 13, color: C.muted }}>{data.alerts.filter(a => a.active).length} activas</div>
+              </div>
+              <button onClick={() => setShowAddAlert(v => !v)} style={{ background: C.dark, border: "none", borderRadius: 14, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: "white", fontSize: 13, fontWeight: 600 }}>
+                <Icon name="plus" size={14} color="white" /> Nueva
+              </button>
+            </div>
+
+            {showAddAlert && (
+              <div style={{ background: "white", borderRadius: 20, padding: 20, marginBottom: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+                <input value={newAlert.title} onChange={e => setNewAlert(n => ({ ...n, title: e.target.value }))} placeholder="Título" style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "11px 14px", fontSize: 14, marginBottom: 10, outline: "none", boxSizing: "border-box" }}/>
+                <input value={newAlert.desc} onChange={e => setNewAlert(n => ({ ...n, desc: e.target.value }))} placeholder="Descripción (opcional)" style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "11px 14px", fontSize: 14, marginBottom: 10, outline: "none", boxSizing: "border-box" }}/>
+                <input value={newAlert.day} onChange={e => setNewAlert(n => ({ ...n, day: e.target.value }))} placeholder="Día (ej: 5, Lunes)" style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 12, padding: "11px 14px", fontSize: 14, marginBottom: 14, outline: "none", boxSizing: "border-box" }}/>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowAddAlert(false)} style={{ flex: 1, background: C.bg, border: "none", borderRadius: 12, padding: "11px", fontSize: 14, cursor: "pointer", fontWeight: 600, color: C.muted }}>Cancelar</button>
+                  <button onClick={() => { if (!newAlert.title.trim()) return; setData(d => ({ ...d, alerts: [...d.alerts, { id: Date.now(), ...newAlert, active: true, color: "#3498DB" }] })); setNewAlert({ title: "", desc: "", day: "" }); setShowAddAlert(false); showToast("🔔 Alerta creada"); }} style={{ flex: 1, background: C.dark, border: "none", borderRadius: 12, padding: "11px", fontSize: 14, cursor: "pointer", fontWeight: 600, color: "white" }}>Guardar</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {data.alerts.map(a => (
+                <div key={a.id} style={{ background: "white", borderRadius: 18, padding: 16, display: "flex", alignItems: "center", gap: 14, boxShadow: "0 1px 6px rgba(0,0,0,0.05)", opacity: a.active ? 1 : 0.5 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 14, background: a.color + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon name="bell" size={18} color={a.color} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{a.title}</div>
+                    {a.desc && <div style={{ fontSize: 12, color: C.muted }}>{a.desc}</div>}
+                    {a.day && <div style={{ fontSize: 11, color: a.color, fontWeight: 600, marginTop: 3 }}>📅 Día {a.day}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div onClick={() => setData(d => ({ ...d, alerts: d.alerts.map(al => al.id === a.id ? { ...al, active: !al.active } : al) }))} style={{ width: 32, height: 32, borderRadius: 10, background: a.active ? C.green + "18" : "#F0F0F0", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      <Icon name="check" size={14} color={a.active ? C.green : C.muted} />
+                    </div>
+                    <div onClick={() => { setData(d => ({ ...d, alerts: d.alerts.filter(al => al.id !== a.id) })); showToast("Alerta eliminada"); }} style={{ width: 32, height: 32, borderRadius: 10, background: C.red + "10", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      <Icon name="trash" size={14} color={C.red} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── AHORROS ── */}
+        {activeTab === "piggy" && (
+          <div style={{ padding: "24px 20px" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 4 }}>Mis ahorros</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>{data.savings.length} metas activas</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {data.savings.map(s => {
+                const pct = Math.min(100, Math.round((s.current / s.goal) * 100));
+                return (
+                  <div key={s.id} style={{ background: "white", borderRadius: 20, padding: 20, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{s.name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>${s.current.toLocaleString("es-AR")} de ${s.goal.toLocaleString("es-AR")}</div>
+                      </div>
+                      <div style={{ background: s.color + "18", color: s.color, borderRadius: 20, padding: "4px 12px", fontSize: 13, fontWeight: 700 }}>{pct}%</div>
+                    </div>
+                    <div style={{ height: 8, background: "#F0F0F0", borderRadius: 99 }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: s.color, borderRadius: 99 }}/>
+                    </div>
+                    {pct >= 90 && <div style={{ fontSize: 11, color: s.color, marginTop: 8, fontWeight: 600 }}>🎉 ¡Casi llegás a tu meta!</div>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 14, border: `2px dashed ${C.border}`, borderRadius: 20, padding: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer" }}>
+              <Icon name="plus" size={18} color={C.muted} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.muted }}>Nueva meta de ahorro</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 390, background: "white", borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 16px", boxShadow: "0 -4px 20px rgba(0,0,0,0.05)" }}>
+        {tabs.map(t => (
+          <div key={t} onClick={() => setActiveTab(t)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 14, background: activeTab === t ? C.dark : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "background .2s" }}>
+              <Icon name={t} size={20} color={activeTab === t ? "white" : C.muted} />
+            </div>
+            <div style={{ fontSize: 10, fontWeight: activeTab === t ? 700 : 400, color: activeTab === t ? C.dark : C.muted, letterSpacing: 0.3 }}>{tabLabels[t]}</div>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+        *{box-sizing:border-box} ::-webkit-scrollbar{display:none}
+        input::placeholder{color:#BBBBBB}
+      `}</style>
+    </div>
+  );
+}
