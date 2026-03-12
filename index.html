@@ -151,22 +151,25 @@ function App(){
     const msgs=[...data.aiMessages,{role:"user",text:msg}];
     setData(d=>({...d,aiMessages:msgs}));setLoading(true);
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
+      const GROQ_KEY="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";
+      const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+        method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:1000,
-          system:`Sos el asistente de Cuentas Claras, app de finanzas argentina. Español rioplatense, conciso (máx 3 oraciones), emojis ocasionales.
+          model:"llama-3.3-70b-versatile",max_tokens:1000,
+          messages:[
+            {role:"system",content:`Sos el asistente de Cuentas Claras, app de finanzas argentina. Español rioplatense, conciso (máx 3 oraciones), emojis ocasionales.
 DATOS: Balance $${data.balance.toLocaleString("es-AR")} | Gastos $${data.expenses.toLocaleString("es-AR")} | Ingresos $${data.income.toLocaleString("es-AR")}
 Ahorros: ${JSON.stringify(data.savings)}
 ACCIONES (JSON al final si hay acción):
 {"action":"add_transaction","name":"x","amount":-100,"cat":"food|car|leisure|home|income|other"}
 {"action":"add_saving","id":1,"amount":5000}
-{"action":"add_alert","title":"x","desc":"x","day":"x"}`,
-          messages:msgs.map(m=>({role:m.role==="ai"?"assistant":"user",content:m.text}))
+{"action":"add_alert","title":"x","desc":"x","day":"x"}`},
+            ...msgs.map(m=>({role:m.role==="ai"?"assistant":"user",content:m.text}))
+          ]
         })
       });
       const json=await res.json();
-      const full=json.content?.map(b=>b.text||"").join("")||"No pude procesar eso.";
+      const full=json.choices?.[0]?.message?.content||"No pude procesar eso.";
       const match=full.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
       const display=full.replace(/\{[\s\S]*?"action"[\s\S]*?\}/,"").trim();
       if(match){try{applyAction(JSON.parse(match[0]));}catch{}}
