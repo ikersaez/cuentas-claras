@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <meta name="theme-color" content="#1A1A2E"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Cuentas Claras"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
   <title>Cuentas Claras</title>
@@ -26,10 +25,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="text/babel">
 const {useState,useEffect,useRef} = React;
+
+const SUPABASE_URL = "https://fqbxvidaqsvwukhtdwuo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Rm96LLquE4y3UxVMn2ksrw_IFE9KbJA";
+const GROQ_KEY = "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";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const C={bg:"#F7F6F2",dark:"#1A1A2E",green:"#2ECC71",red:"#E74C3C",gold:"#F4A261",muted:"#9A9A9A",border:"#EBEBEB"};
-const STORAGE_KEY="cuentas_claras_v1";
+
 const defaultData={
   balance:0,income:0,expenses:0,
   transactions:[],
@@ -40,8 +46,7 @@ const defaultData={
   alerts:[],
   aiMessages:[{role:"ai",text:"¡Hola! Soy tu asistente de Cuentas Claras 👋 Puedo registrar gastos, actualizar ahorros y crear alertas. ¿En qué te ayudo?"}],
 };
-function loadData(){return defaultData;}
-function saveData(d){}
+
 function fmt(n){return(n<0?"-":"+")+"\$"+Math.abs(n).toLocaleString("es-AR");}
 function fmtAbs(n){return"\$"+Math.abs(n).toLocaleString("es-AR");}
 function todayStr(){return new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"short"});}
@@ -84,17 +89,65 @@ function Icon({name,size=20,color=C.dark}){
     car:<svg width={size} height={size} viewBox="0 0 24 24" {...p}><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
     wallet:<svg width={size} height={size} viewBox="0 0 24 24" {...p}><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M2 10h20"/></svg>,
     tag:<svg width={size} height={size} viewBox="0 0 24 24" {...p}><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+    logout:<svg width={size} height={size} viewBox="0 0 24 24" {...p}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
   };
   return icons[name]||null;
 }
 
 const catIcons={food:"food",income:"wallet",car:"car",leisure:"tag",home:"home",other:"wallet"};
 
-function App(){
-  const [data,setData]=useState(loadData);
+// ── LOGIN SCREEN ──
+function LoginScreen({onLogin}){
+  const [mode,setMode]=useState("login");
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const [msg,setMsg]=useState("");
+
+  async function handleSubmit(){
+    if(!email.trim()||!pass.trim()){setError("Completá todos los campos");return;}
+    setLoading(true);setError("");
+    try{
+      if(mode==="login"){
+        const {data,error:e}=await sb.auth.signInWithPassword({email,password:pass});
+        if(e)setError("Email o contraseña incorrectos");
+        else onLogin(data.user);
+      } else {
+        const {error:e}=await sb.auth.signUp({email,password:pass});
+        if(e)setError(e.message);
+        else setMsg("¡Cuenta creada! Revisá tu email para confirmar.");
+      }
+    }catch{setError("Error de conexión");}
+    setLoading(false);
+  }
+
+  return <div style={{minHeight:"100vh",background:C.dark,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px",maxWidth:390,margin:"0 auto"}}>
+    <div style={{marginBottom:40}}><Logo size="lg" dark={true}/></div>
+    <div style={{background:"white",borderRadius:24,padding:28,width:"100%"}}>
+      <div style={{display:"flex",background:C.bg,borderRadius:14,padding:4,marginBottom:24}}>
+        {["login","register"].map(m=><div key={m} onClick={()=>{setMode(m);setError("");setMsg("");}} style={{flex:1,textAlign:"center",padding:"10px",borderRadius:10,background:mode===m?C.dark:"transparent",color:mode===m?"white":C.muted,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+          {m==="login"?"Ingresar":"Registrarse"}
+        </div>)}
+      </div>
+      {msg&&<div style={{background:"#d4edda",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#155724"}}>{msg}</div>}
+      {error&&<div style={{background:"#f8d7da",borderRadius:12,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#721c24"}}>{error}</div>}
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={{width:"100%",border:`1.5px solid ${C.border}`,borderRadius:14,padding:"13px 16px",fontSize:15,marginBottom:12,outline:"none",color:C.dark}}/>
+      <input value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleSubmit()} placeholder="Contraseña" type="password" style={{width:"100%",border:`1.5px solid ${C.border}`,borderRadius:14,padding:"13px 16px",fontSize:15,marginBottom:20,outline:"none",color:C.dark}}/>
+      <button onClick={handleSubmit} disabled={loading} style={{width:"100%",background:C.dark,border:"none",borderRadius:16,padding:"15px",fontSize:15,fontWeight:700,color:"white",cursor:"pointer",opacity:loading?0.7:1}}>
+        {loading?"Cargando...":(mode==="login"?"Ingresar":"Crear cuenta")}
+      </button>
+    </div>
+  </div>;
+}
+
+// ── MAIN APP ──
+function MainApp({user,onLogout}){
+  const [data,setData]=useState(defaultData);
   const [tab,setTab]=useState("home");
   const [aiInput,setAiInput]=useState("");
   const [loading,setLoading]=useState(false);
+  const [saving,setSaving]=useState(false);
   const [toast,setToast]=useState(null);
   const [showTx,setShowTx]=useState(false);
   const [showAlert,setShowAlert]=useState(false);
@@ -103,15 +156,42 @@ function App(){
   const [newTx,setNewTx]=useState({name:"",amount:"",cat:"food"});
   const [newAl,setNewAl]=useState({title:"",desc:"",day:""});
   const endRef=useRef(null);
+  const saveTimer=useRef(null);
 
-  useEffect(()=>{saveData(data);},[data]);
+  useEffect(()=>{loadUserData();},[user]);
   useEffect(()=>{if(tab==="sparkle")endRef.current?.scrollIntoView({behavior:"smooth"});},[data.aiMessages,tab]);
+
+  async function loadUserData(){
+    const {data:rows}=await sb.from("user_data").select("data").eq("user_id",user.id).single();
+    if(rows?.data)setData({...defaultData,...rows.data});
+  }
+
+  async function saveUserData(d){
+    setSaving(true);
+    await sb.from("user_data").upsert({user_id:user.id,data:d,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+    setSaving(false);
+  }
+
+  function updateData(fn){
+    setData(d=>{
+      const next=fn(d);
+      clearTimeout(saveTimer.current);
+      saveTimer.current=setTimeout(()=>saveUserData(next),1000);
+      return next;
+    });
+  }
 
   function showToast(m){setToast(m);setTimeout(()=>setToast(null),2800);}
 
+  async function handleLogout(){
+    await sb.auth.signOut();
+    onLogout();
+  }
+
   function resetAll(){
-    localStorage.removeItem(STORAGE_KEY);
-    setData({...defaultData});
+    const fresh=defaultData;
+    setData(fresh);
+    saveUserData(fresh);
     setShowReset(false);
     showToast("✅ Datos reseteados");
   }
@@ -121,7 +201,7 @@ function App(){
     const amount=txType==="gasto"?-Math.abs(parseFloat(newTx.amount)):Math.abs(parseFloat(newTx.amount));
     const cat=txType==="ingreso"?"income":newTx.cat;
     const tx={id:Date.now(),name:newTx.name,amount,cat,date:todayStr()};
-    setData(d=>({...d,transactions:[tx,...d.transactions],balance:d.balance+amount,
+    updateData(d=>({...d,transactions:[tx,...d.transactions],balance:d.balance+amount,
       expenses:amount<0?d.expenses+Math.abs(amount):d.expenses,
       income:amount>0?d.income+amount:d.income}));
     setNewTx({name:"",amount:"",cat:"food"});setShowTx(false);
@@ -131,22 +211,21 @@ function App(){
   function applyAction(a){
     if(a.action==="add_transaction"){
       const tx={id:Date.now(),name:a.name,amount:a.amount,cat:a.cat||"other",date:todayStr()};
-      setData(d=>({...d,transactions:[tx,...d.transactions],balance:d.balance+a.amount,
+      updateData(d=>({...d,transactions:[tx,...d.transactions],balance:d.balance+a.amount,
         expenses:a.amount<0?d.expenses+Math.abs(a.amount):d.expenses,
         income:a.amount>0?d.income+a.amount:d.income}));
       showToast(a.amount<0?`💸 ${fmtAbs(a.amount)}`:`💰 ${fmtAbs(a.amount)}`);
     }
-    if(a.action==="add_saving")setData(d=>({...d,savings:d.savings.map(s=>s.id===a.id?{...s,current:s.current+a.amount}:s)}));
-    if(a.action==="add_alert")setData(d=>({...d,alerts:[...d.alerts,{id:Date.now(),title:a.title,desc:a.desc||"",day:a.day||"—",active:true,color:"#3498DB"}]}));
+    if(a.action==="add_saving")updateData(d=>({...d,savings:d.savings.map(s=>s.id===a.id?{...s,current:s.current+a.amount}:s)}));
+    if(a.action==="add_alert")updateData(d=>({...d,alerts:[...d.alerts,{id:Date.now(),title:a.title,desc:a.desc||"",day:a.day||"—",active:true,color:"#3498DB"}]}));
   }
 
   async function sendMsg(text){
     const msg=text||aiInput;if(!msg.trim())return;
     setAiInput("");
     const msgs=[...data.aiMessages,{role:"user",text:msg}];
-    setData(d=>({...d,aiMessages:msgs}));setLoading(true);
+    updateData(d=>({...d,aiMessages:msgs}));setLoading(true);
     try{
-      const GROQ_KEY="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";
       const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
         method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+GROQ_KEY},
         body:JSON.stringify({
@@ -168,35 +247,32 @@ ACCIONES (JSON al final si hay acción):
       const match=full.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
       const display=full.replace(/\{[\s\S]*?"action"[\s\S]*?\}/,"").trim();
       if(match){try{applyAction(JSON.parse(match[0]));}catch{}}
-      setData(d=>({...d,aiMessages:[...d.aiMessages,{role:"ai",text:display}]}));
-    }catch{setData(d=>({...d,aiMessages:[...d.aiMessages,{role:"ai",text:"Error de conexión. Intentá de nuevo."}]}));}
+      updateData(d=>({...d,aiMessages:[...d.aiMessages,{role:"ai",text:display}]}));
+    }catch{updateData(d=>({...d,aiMessages:[...d.aiMessages,{role:"ai",text:"Error de conexión. Intentá de nuevo."}]}));}
     setLoading(false);
   }
 
-  const gastosReales = data.transactions.filter(t=>t.amount<0);
-  const totalGastos = gastosReales.reduce((s,t)=>s+Math.abs(t.amount),0);
-  const catTotals = {food:0,car:0,home:0,leisure:0,other:0};
+  const gastosReales=data.transactions.filter(t=>t.amount<0);
+  const totalGastos=gastosReales.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const catTotals={food:0,car:0,home:0,leisure:0,other:0};
   gastosReales.forEach(t=>{if(catTotals[t.cat]!==undefined)catTotals[t.cat]+=Math.abs(t.amount);else catTotals.other+=Math.abs(t.amount);});
-  const catBars = totalGastos===0
-    ? [{name:"Comida",pct:0,color:"#F4A261"},{name:"Transporte",pct:0,color:"#3498DB"},{name:"Hogar",pct:0,color:"#E74C3C"},{name:"Ocio",pct:0,color:"#9B59B6"}]
-    : [
-        {name:"Comida",pct:Math.round(catTotals.food/totalGastos*100),color:"#F4A261",total:catTotals.food},
-        {name:"Transporte",pct:Math.round(catTotals.car/totalGastos*100),color:"#3498DB",total:catTotals.car},
-        {name:"Hogar",pct:Math.round(catTotals.home/totalGastos*100),color:"#E74C3C",total:catTotals.home},
-        {name:"Ocio",pct:Math.round(catTotals.leisure/totalGastos*100),color:"#9B59B6",total:catTotals.leisure},
-        {name:"Otro",pct:Math.round(catTotals.other/totalGastos*100),color:"#95A5A6",total:catTotals.other},
-      ].filter(b=>b.pct>0).sort((a,b)=>b.pct-a.pct);
+  const catBars=totalGastos===0?[]:[
+    {name:"Comida",pct:Math.round(catTotals.food/totalGastos*100),color:"#F4A261",total:catTotals.food},
+    {name:"Transporte",pct:Math.round(catTotals.car/totalGastos*100),color:"#3498DB",total:catTotals.car},
+    {name:"Hogar",pct:Math.round(catTotals.home/totalGastos*100),color:"#E74C3C",total:catTotals.home},
+    {name:"Ocio",pct:Math.round(catTotals.leisure/totalGastos*100),color:"#9B59B6",total:catTotals.leisure},
+    {name:"Otro",pct:Math.round(catTotals.other/totalGastos*100),color:"#95A5A6",total:catTotals.other},
+  ].filter(b=>b.pct>0).sort((a,b)=>b.pct-a.pct);
 
   return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",maxWidth:390,margin:"0 auto",display:"flex",flexDirection:"column",position:"relative"}}>
 
-    <div style={{background:C.dark,padding:"10px 20px 6px",display:"flex",justifyContent:"space-between"}}>
+    <div style={{background:C.dark,padding:"10px 20px 6px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{color:"white",fontSize:12,fontWeight:600}}>9:41</span>
-      <span style={{color:"white",fontSize:11}}>●●●</span>
+      <span style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>{saving?"guardando...":user.email}</span>
     </div>
 
     {toast&&<div style={{position:"fixed",top:60,left:"50%",transform:"translateX(-50%)",background:C.dark,color:"white",borderRadius:24,padding:"10px 20px",fontSize:13,fontWeight:600,zIndex:999,boxShadow:"0 4px 20px rgba(0,0,0,0.2)",whiteSpace:"nowrap",animation:"fadeIn .3s ease"}}>{toast}</div>}
 
-    {/* Reset Modal */}
     {showReset&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:990,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 24px"}}>
       <div style={{background:"white",borderRadius:24,padding:28,width:"100%",maxWidth:340}}>
         <div style={{fontSize:18,fontWeight:800,color:C.dark,marginBottom:8}}>¿Resetear todo?</div>
@@ -208,7 +284,6 @@ ACCIONES (JSON al final si hay acción):
       </div>
     </div>}
 
-    {/* Add Transaction Modal */}
     {showTx&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:900,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
       <div style={{background:"white",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:390}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
@@ -238,7 +313,12 @@ ACCIONES (JSON al final si hay acción):
           <div style={{position:"absolute",top:-50,right:-50,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.03)"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <Logo size="md" dark={true}/>
-            <div onClick={()=>setShowReset(true)} style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"7px 12px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600}}>🗑️ Resetear</div>
+            <div style={{display:"flex",gap:8}}>
+              <div onClick={()=>setShowReset(true)} style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600}}>🗑️</div>
+              <div onClick={handleLogout} style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"7px 10px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+                <Icon name="logout" size={14} color="rgba(255,255,255,0.6)"/>
+              </div>
+            </div>
           </div>
           <div style={{marginTop:28,marginBottom:6,color:"rgba(255,255,255,0.5)",fontSize:12}}>Balance disponible</div>
           <div style={{color:"white",fontSize:40,fontWeight:800,letterSpacing:-2,marginBottom:24}}>${data.balance.toLocaleString("es-AR")}</div>
@@ -296,7 +376,7 @@ ACCIONES (JSON al final si hay acción):
           {catBars.map(b=><div key={b.name} style={{marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
               <span style={{fontSize:13,fontWeight:600,color:C.dark}}>{b.name}</span>
-              <span style={{fontSize:13,color:C.muted}}>{b.pct}% {b.total?"· "+fmtAbs(b.total):""}</span>
+              <span style={{fontSize:13,color:C.muted}}>{b.pct}% · {fmtAbs(b.total)}</span>
             </div>
             <div style={{height:7,background:"#F0F0F0",borderRadius:99}}>
               <div style={{height:"100%",width:`${b.pct}%`,background:b.color,borderRadius:99}}/>
@@ -310,7 +390,7 @@ ACCIONES (JSON al final si hay acción):
           <div style={{background:"rgba(255,255,255,0.08)",borderRadius:12,padding:10}}><Icon name="sparkle" size={18} color={C.gold}/></div>
           <div>
             <div style={{color:"white",fontSize:15,fontWeight:700}}>Asistente IA</div>
-            <div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>Cuentas Claras · datos guardados ✓</div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>Cuentas Claras · datos en la nube ☁️</div>
           </div>
         </div>
         <div style={{padding:"12px 16px 0",display:"flex",gap:8,overflowX:"auto"}}>
@@ -347,7 +427,7 @@ ACCIONES (JSON al final si hay acción):
           <input value={newAl.day} onChange={e=>setNewAl(n=>({...n,day:e.target.value}))} placeholder="Día (ej: 5, Lunes)" style={{width:"100%",border:`1.5px solid ${C.border}`,borderRadius:12,padding:"11px 14px",fontSize:14,marginBottom:14,outline:"none"}}/>
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>setShowAlert(false)} style={{flex:1,background:C.bg,border:"none",borderRadius:12,padding:"11px",fontSize:14,cursor:"pointer",fontWeight:600,color:C.muted}}>Cancelar</button>
-            <button onClick={()=>{if(!newAl.title.trim())return;setData(d=>({...d,alerts:[...d.alerts,{id:Date.now(),...newAl,active:true,color:"#3498DB"}]}));setNewAl({title:"",desc:"",day:""});setShowAlert(false);showToast("🔔 Alerta creada");}} style={{flex:1,background:C.dark,border:"none",borderRadius:12,padding:"11px",fontSize:14,cursor:"pointer",fontWeight:600,color:"white"}}>Guardar</button>
+            <button onClick={()=>{if(!newAl.title.trim())return;updateData(d=>({...d,alerts:[...d.alerts,{id:Date.now(),...newAl,active:true,color:"#3498DB"}]}));setNewAl({title:"",desc:"",day:""});setShowAlert(false);showToast("🔔 Alerta creada");}} style={{flex:1,background:C.dark,border:"none",borderRadius:12,padding:"11px",fontSize:14,cursor:"pointer",fontWeight:600,color:"white"}}>Guardar</button>
           </div>
         </div>}
         {data.alerts.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:C.muted,fontSize:14}}>No hay alertas aún.<br/>¡Creá tu primer recordatorio!</div>}
@@ -360,8 +440,8 @@ ACCIONES (JSON al final si hay acción):
               {a.day&&<div style={{fontSize:11,color:a.color,fontWeight:600,marginTop:3}}>📅 Día {a.day}</div>}
             </div>
             <div style={{display:"flex",gap:8}}>
-              <div onClick={()=>setData(d=>({...d,alerts:d.alerts.map(al=>al.id===a.id?{...al,active:!al.active}:al)}))} style={{width:32,height:32,borderRadius:10,background:a.active?C.green+"18":"#F0F0F0",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><Icon name="check" size={14} color={a.active?C.green:C.muted}/></div>
-              <div onClick={()=>{setData(d=>({...d,alerts:d.alerts.filter(al=>al.id!==a.id)}));showToast("Alerta eliminada");}} style={{width:32,height:32,borderRadius:10,background:C.red+"10",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><Icon name="trash" size={14} color={C.red}/></div>
+              <div onClick={()=>updateData(d=>({...d,alerts:d.alerts.map(al=>al.id===a.id?{...al,active:!al.active}:al)}))} style={{width:32,height:32,borderRadius:10,background:a.active?C.green+"18":"#F0F0F0",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><Icon name="check" size={14} color={a.active?C.green:C.muted}/></div>
+              <div onClick={()=>{updateData(d=>({...d,alerts:d.alerts.filter(al=>al.id!==a.id)}));showToast("Alerta eliminada");}} style={{width:32,height:32,borderRadius:10,background:C.red+"10",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><Icon name="trash" size={14} color={C.red}/></div>
             </div>
           </div>)}
         </div>
@@ -388,10 +468,6 @@ ACCIONES (JSON al final si hay acción):
             </div>;
           })}
         </div>
-        <div style={{marginTop:14,border:`2px dashed ${C.border}`,borderRadius:20,padding:20,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}}>
-          <Icon name="plus" size={18} color={C.muted}/>
-          <span style={{fontSize:14,fontWeight:600,color:C.muted}}>Nueva meta de ahorro</span>
-        </div>
       </div>}
 
     </div>
@@ -405,6 +481,30 @@ ACCIONES (JSON al final si hay acción):
       </div>)}
     </div>
   </div>;
+}
+
+// ── ROOT ──
+function App(){
+  const [user,setUser]=useState(null);
+  const [checking,setChecking]=useState(true);
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data:{session}})=>{
+      setUser(session?.user||null);
+      setChecking(false);
+    });
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>{
+      setUser(session?.user||null);
+    });
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  if(checking)return <div style={{minHeight:"100vh",background:C.dark,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{color:"white",fontSize:16,fontWeight:600}}>Cargando...</div>
+  </div>;
+
+  if(!user)return <LoginScreen onLogin={setUser}/>;
+  return <MainApp user={user} onLogout={()=>setUser(null)}/>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
