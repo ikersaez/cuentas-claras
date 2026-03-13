@@ -40,8 +40,8 @@ const defaultData={
   alerts:[],
   aiMessages:[{role:"ai",text:"¡Hola! Soy tu asistente de Cuentas Claras 👋 Puedo registrar gastos, actualizar ahorros y crear alertas. ¿En qué te ayudo?"}],
 };
-function loadData(){try{const r=localStorage.getItem(STORAGE_KEY);return r?{...defaultData,...JSON.parse(r)}:defaultData;}catch{return defaultData;}}
-function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
+function loadData(){return defaultData;}
+function saveData(d){}
 function fmt(n){return(n<0?"-":"+")+"\$"+Math.abs(n).toLocaleString("es-AR");}
 function fmtAbs(n){return"\$"+Math.abs(n).toLocaleString("es-AR");}
 function todayStr(){return new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"short"});}
