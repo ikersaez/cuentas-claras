@@ -173,7 +173,19 @@ ACCIONES (JSON al final si hay acción):
     setLoading(false);
   }
 
-  const catBars=[{name:"Comida",pct:35,color:"#F4A261"},{name:"Transporte",pct:22,color:"#3498DB"},{name:"Hogar",pct:28,color:"#E74C3C"},{name:"Ocio",pct:15,color:"#9B59B6"}];
+  const gastosReales = data.transactions.filter(t=>t.amount<0);
+  const totalGastos = gastosReales.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const catTotals = {food:0,car:0,home:0,leisure:0,other:0};
+  gastosReales.forEach(t=>{if(catTotals[t.cat]!==undefined)catTotals[t.cat]+=Math.abs(t.amount);else catTotals.other+=Math.abs(t.amount);});
+  const catBars = totalGastos===0
+    ? [{name:"Comida",pct:0,color:"#F4A261"},{name:"Transporte",pct:0,color:"#3498DB"},{name:"Hogar",pct:0,color:"#E74C3C"},{name:"Ocio",pct:0,color:"#9B59B6"}]
+    : [
+        {name:"Comida",pct:Math.round(catTotals.food/totalGastos*100),color:"#F4A261",total:catTotals.food},
+        {name:"Transporte",pct:Math.round(catTotals.car/totalGastos*100),color:"#3498DB",total:catTotals.car},
+        {name:"Hogar",pct:Math.round(catTotals.home/totalGastos*100),color:"#E74C3C",total:catTotals.home},
+        {name:"Ocio",pct:Math.round(catTotals.leisure/totalGastos*100),color:"#9B59B6",total:catTotals.leisure},
+        {name:"Otro",pct:Math.round(catTotals.other/totalGastos*100),color:"#95A5A6",total:catTotals.other},
+      ].filter(b=>b.pct>0).sort((a,b)=>b.pct-a.pct);
 
   return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:C.bg,minHeight:"100vh",maxWidth:390,margin:"0 auto",display:"flex",flexDirection:"column",position:"relative"}}>
 
@@ -280,10 +292,11 @@ ACCIONES (JSON al final si hay acción):
         <div style={{fontSize:13,color:C.muted,marginBottom:24}}>{new Date().toLocaleDateString("es-AR",{month:"long",year:"numeric"})}</div>
         <div style={{background:"white",borderRadius:20,padding:20,marginBottom:14,boxShadow:"0 2px 10px rgba(0,0,0,0.05)"}}>
           <div style={{fontSize:12,color:C.muted,letterSpacing:1,marginBottom:18}}>GASTOS POR CATEGORÍA</div>
+          {catBars.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:C.muted,fontSize:14}}>Todavía no hay gastos registrados 📊</div>}
           {catBars.map(b=><div key={b.name} style={{marginBottom:14}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
               <span style={{fontSize:13,fontWeight:600,color:C.dark}}>{b.name}</span>
-              <span style={{fontSize:13,color:C.muted}}>{b.pct}%</span>
+              <span style={{fontSize:13,color:C.muted}}>{b.pct}% {b.total?"· "+fmtAbs(b.total):""}</span>
             </div>
             <div style={{height:7,background:"#F0F0F0",borderRadius:99}}>
               <div style={{height:"100%",width:`${b.pct}%`,background:b.color,borderRadius:99}}/>
