@@ -211,6 +211,17 @@ ACCIONES (JSON al final si hay acción):
       </div>
     </div>}
 
+    {showReset&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 24px"}}>
+      <div style={{background:"white",borderRadius:24,padding:28,width:"100%",maxWidth:340}}>
+        <div style={{fontSize:18,fontWeight:800,color:"#1A1A2E",marginBottom:8}}>¿Resetear todo?</div>
+        <div style={{fontSize:14,color:"#9A9A9A",marginBottom:24}}>Se van a borrar todos tus datos y vas a empezar desde cero.</div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setShowReset(false)} style={{flex:1,background:"#F7F6F2",border:"none",borderRadius:14,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",color:"#9A9A9A"}}>Cancelar</button>
+          <button onClick={()=>{localStorage.removeItem("cuentas_claras_v1");window.location.reload();}} style={{flex:1,background:"#E74C3C",border:"none",borderRadius:14,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",color:"white"}}>Borrar todo</button>
+        </div>
+      </div>
+    </div>}
+
     <div style={{flex:1,overflowY:"auto",paddingBottom:80}}>
 
       {tab==="home"&&<div>
@@ -218,7 +229,7 @@ ACCIONES (JSON al final si hay acción):
           <div style={{position:"absolute",top:-50,right:-50,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.03)"}}/>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <Logo size="md" dark={true}/>
-            <div onClick={()=>{if(window.confirm("¿Borrar todos los datos y empezar de cero?")){localStorage.removeItem("cuentas_claras_v1");window.location.reload();}}} style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"7px 12px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600}}>🗑️ Resetear</div>
+            <div onClick={()=>setShowReset(true)} style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"7px 12px",cursor:"pointer",fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:600}}>🗑️ Resetear</div>
           </div>
           <div style={{marginTop:28,marginBottom:6,color:"rgba(255,255,255,0.5)",fontSize:12}}>Balance disponible</div>
           <div style={{color:"white",fontSize:40,fontWeight:800,letterSpacing:-2,marginBottom:24}}>${data.balance.toLocaleString("es-AR")}</div>
